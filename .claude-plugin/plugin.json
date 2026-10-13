@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "description": "Build an animated visual replay of a conversation or work session: which agent led, which agents worked, what was handed over, checked, failed and fixed.",
   "author": {
-    "name": "Mohammed"
+    "name": "Mohammed Haris"
   },
   "homepage": "https://github.com/M0hammedHaris/session-replay-plugin",
   "repository": "https://github.com/M0hammedHaris/session-replay-plugin",
