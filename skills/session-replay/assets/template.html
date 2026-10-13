@@ -1,0 +1,218 @@
+<meta charset="utf-8">
+<title>Session Replay</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/motion@11.11.13/dist/motion.js"></script>
+<style>
+/* Layout: lead agent on top, workers in a row under it, helper agents as chips below; messages fly between them. */
+:root{
+  --bg:#f3f5fa; --panel:#ffffff; --ink:#171c2b; --muted:#5b647a; --line:#d9deea; --ghost:#e6eaf3;
+  --lead:#c8623f; --c1:#0f8f8a; --c2:#6b4fd8; --c3:#2f6fd0; --c4:#a8478f; --c5:#5d7a1f; --c6:#8a5a2b;
+  --helper:#7d879c; --lamp:#c77d00; --ok:#1f9254; --bad:#d0342c;
+  --display:"Sora",system-ui,sans-serif; --body:"IBM Plex Sans",system-ui,sans-serif; --mono:"IBM Plex Mono",ui-monospace,monospace;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#10131c; --panel:#181d2a; --ink:#e8ebf3; --muted:#98a2b8; --line:#2a3144; --ghost:#222939;
+  --lead:#e58a66; --c1:#35c4bd; --c2:#a18bff; --c3:#6fa5ff; --c4:#e184c8; --c5:#a3c95a; --c6:#d6a06a;
+  --helper:#7f89a1; --lamp:#ffb938; --ok:#4cc98a; --bad:#ff6b61; color-scheme:dark } }
+:root[data-theme="dark"]{
+  --bg:#10131c; --panel:#181d2a; --ink:#e8ebf3; --muted:#98a2b8; --line:#2a3144; --ghost:#222939;
+  --lead:#e58a66; --c1:#35c4bd; --c2:#a18bff; --c3:#6fa5ff; --c4:#e184c8; --c5:#a3c95a; --c6:#d6a06a;
+  --helper:#7f89a1; --lamp:#ffb938; --ok:#4cc98a; --bad:#ff6b61; color-scheme:dark }
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.5;padding-inline:20px;padding-block:28px 56px}
+.wrap{max-width:1120px;margin-inline:auto;display:flex;flex-direction:column;gap:28px}
+h1{font-family:var(--display);font-size:clamp(26px,4vw,38px);line-height:1.1;margin:0;text-wrap:balance}
+h2{font-family:var(--display);font-size:18px;margin:0 0 12px}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.lede{color:var(--muted);max-width:60ch;margin:8px 0 0}
+header{display:flex;flex-wrap:wrap;gap:20px;align-items:flex-end;justify-content:space-between}
+.controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+button{font:600 14px var(--body);border-radius:999px;border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:9px 16px;cursor:pointer}
+button.primary{background:var(--lamp);border-color:var(--lamp);color:#1a1300}
+button:focus-visible{outline:2px solid var(--lamp);outline-offset:2px}
+.clock{font-family:var(--mono);font-size:26px;font-variant-numeric:tabular-nums;color:var(--lamp);min-width:5ch}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.stat{background:var(--panel);padding:12px 16px;min-width:0}
+.stat b{display:block;font-family:var(--display);font-size:26px;font-variant-numeric:tabular-nums;line-height:1.1}
+.stat span{font-size:13px;color:var(--muted)}
+.stat b.bad{color:var(--bad)}
+.stage{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:22px 16px 16px;display:flex;flex-direction:column;gap:26px;overflow:hidden}
+.row{display:flex;flex-wrap:wrap;justify-content:space-around;gap:22px 12px}
+.agent{display:flex;flex-direction:column;align-items:center;text-align:center;gap:6px;min-width:0;flex:0 1 220px}
+.avatar{width:72px;height:72px;border-radius:50%;display:grid;place-items:center;background:var(--ghost);position:relative;font:700 22px var(--display)}
+.avatar svg{width:44px;height:44px}
+.lead .avatar{width:84px;height:84px}.lead .avatar svg{width:52px;height:52px}
+.avatar::after{content:"";position:absolute;inset:-5px;border-radius:50%;border:2px solid transparent}
+.working .avatar::after{border-color:currentColor;border-right-color:transparent;animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.name{font-family:var(--display);font-weight:600;font-size:15px}
+.role{font-size:12px;color:var(--muted)}
+.status{font-family:var(--mono);font-size:12px;min-height:36px;overflow-wrap:anywhere;max-width:26ch}
+.status.idle{color:var(--muted)}
+.rail{display:flex;flex-wrap:wrap;gap:4px;justify-content:center;min-height:12px;max-width:150px}
+.rail i{width:10px;height:10px;border-radius:50%;background:var(--lamp);display:block}
+.helpers{border-top:1px dashed var(--line);padding-top:14px;display:flex;flex-direction:column;gap:10px;align-items:center}
+.chips{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;min-height:34px}
+.chip{font-family:var(--mono);font-size:12px;border:1.5px solid var(--helper);color:var(--helper);border-radius:999px;padding:4px 10px;background:var(--panel);white-space:nowrap}
+.chip.working{border-style:dashed}
+.chip.ok{border-color:var(--ok);color:var(--ok)}.chip.bad{border-color:var(--bad);color:var(--bad)}
+.packet{position:absolute;left:0;top:0;pointer-events:none;z-index:3}
+.packet span{display:block;transform:translate(-50%,-50%);font-family:var(--mono);font-size:12px;font-weight:500;padding:4px 10px;border-radius:999px;color:var(--panel);background:var(--ink);white-space:nowrap;max-width:240px;overflow:hidden;text-overflow:ellipsis}
+.caption{display:flex;gap:12px;align-items:baseline;justify-content:center;flex-wrap:wrap;text-align:center;border-top:1px solid var(--line);padding-top:14px;min-height:62px}
+.caption .who{font-family:var(--mono);font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.caption .what{font-family:var(--display);font-size:clamp(17px,2.4vw,22px);font-weight:600;text-wrap:balance}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:28px}
+.feed{list-style:none;margin:0;padding:0;height:300px;overflow:auto;border:1px solid var(--line);border-radius:12px;background:var(--panel)}
+.feed li{display:grid;grid-template-columns:48px 10px 1fr;gap:10px;padding:6px 12px;border-bottom:1px solid var(--line);font-size:13.5px;align-items:baseline}
+.feed time{font-family:var(--mono);font-size:12px;color:var(--muted)}
+.feed .dot{width:8px;height:8px;border-radius:50%;align-self:center}
+.moment{border-left:3px solid var(--lamp);padding:2px 0 2px 14px;min-width:0;margin-bottom:14px}
+.moment.bad{border-color:var(--bad)}.moment.bad .eyebrow{color:var(--bad)}
+.moment.ok{border-color:var(--ok)}
+.moment h3{font:600 15px var(--body);margin:2px 0}
+.moment p{margin:0;color:var(--muted);font-size:14px}
+ul.open{margin:0;padding-left:18px}ul.open li{margin-bottom:8px}ul.open span{color:var(--muted)}
+@media (max-width:560px){.avatar{width:54px;height:54px;font-size:17px}.avatar svg{width:32px;height:32px}.lead .avatar{width:62px;height:62px}.lead .avatar svg{width:38px;height:38px}.agent{flex-basis:130px}.name{font-size:13px}.status{font-size:11px}.packet span{max-width:150px}}
+@media (prefers-reduced-motion: reduce){.working .avatar::after{animation:none}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <div class="eyebrow" id="d-when"></div>
+      <h1 id="d-title"></h1>
+      <p class="lede" id="d-lede"></p>
+    </div>
+    <div class="controls">
+      <span class="clock" id="clock"></span>
+      <button class="primary" id="play">Replay</button>
+      <button id="speed" aria-label="Change replay speed">Speed 1×</button>
+    </div>
+  </header>
+  <section class="stats" id="stats" aria-label="Running totals"></section>
+  <section class="stage" id="stage" aria-label="Agents and the messages between them">
+    <div class="row" id="row-lead"></div>
+    <div class="row" id="row-workers"></div>
+    <div class="helpers" id="helpers"><div class="eyebrow" id="d-helpers"></div><div class="chips" id="chips"></div></div>
+    <div class="caption"><span class="who" id="cap-who"></span><span class="what" id="cap-what"></span></div>
+  </section>
+  <section class="cols">
+    <div><h2>Message feed</h2><ol class="feed" id="feed"></ol></div>
+    <div id="moments-box"><h2 id="d-moments"></h2><div id="moments"></div></div>
+  </section>
+  <section id="open-box"><h2 id="d-open"></h2><ul class="open" id="open"></ul></section>
+</div>
+
+<script>
+// Replace everything between the two markers with the real session. See SKILL.md for the fields.
+const DATA = /*REPLAY_DATA_START*/{
+  title: "Session Replay",
+  when: "Example session · 3 agents",
+  lede: "Sample data. One lead, two workers and one helper pass work between them.",
+  helpersLabel: "Helper agents spawned by the lead",
+  outputLabel: "outputs saved",
+  momentsTitle: "Moments that mattered",
+  openTitle: "Where it stopped",
+  agents: [
+    {id:"lead", name:"Claude", role:"orchestrator", tier:"lead", avatar:"spark"},
+    {id:"w1", name:"Worker A", role:"writes the code", tier:"worker"},
+    {id:"w2", name:"Worker B", role:"writes the tests", tier:"worker"},
+    {id:"h1", name:"reviewer", role:"read-only check", tier:"helper"}
+  ],
+  steps: [
+    {t:"10:00", kind:"send", from:"lead", to:"w1", label:"Build the parser", starts:true},
+    {t:"10:00", kind:"send", from:"lead", to:"w2", label:"Write parser tests", starts:true},
+    {t:"10:12", kind:"send", from:"w1", to:"lead", label:"Parser built", ends:true},
+    {t:"10:12", kind:"check", who:"lead", label:"It compiles"},
+    {t:"10:13", kind:"spawn", by:"lead", who:"h1", label:"Review the parser"},
+    {t:"10:15", kind:"send", from:"w2", to:"lead", label:"14 tests written", ends:true},
+    {t:"10:17", kind:"send", from:"h1", to:"lead", label:"Fail · empty input crashes", verdict:"bad"},
+    {t:"10:17", kind:"send", from:"lead", to:"w1", label:"Handle empty input", tone:"bad", starts:true},
+    {t:"10:22", kind:"send", from:"w1", to:"lead", label:"Fixed", ends:true},
+    {t:"10:23", kind:"output", who:"w1", label:"Parser saved"}
+  ],
+  moments: [{when:"10:17 · reviewer", title:"Empty input crashed the parser", text:"Caught in review and fixed five minutes later.", tone:"bad"}],
+  open: [{title:"Not run on real files.", text:"Only the sample inputs were tried."}]
+}/*REPLAY_DATA_END*/;
+
+const $=id=>document.getElementById(id), A={}, M=window.Motion, stage=$('stage');
+const txt=(tag,cls,s)=>{const e=document.createElement(tag);if(cls)e.className=cls;e.textContent=s==null?'':s;return e};
+let rays='';for(let i=0;i<12;i++){const a=i*Math.PI/6,l=i%2?16:21;rays+=`<line x1="${(6*Math.cos(a)).toFixed(1)}" y1="${(6*Math.sin(a)).toFixed(1)}" x2="${(l*Math.cos(a)).toFixed(1)}" y2="${(l*Math.sin(a)).toFixed(1)}"/>`}
+const AVATAR={spark:`<svg viewBox="-24 -24 48 48" aria-hidden="true"><g stroke="currentColor" stroke-width="4" stroke-linecap="round">${rays}</g></svg>`,
+  ghost:`<svg viewBox="-24 -24 48 48" aria-hidden="true"><path fill="currentColor" d="M-14 19V-4a14 14 0 0 1 28 0V19l-4.7-4.5L4.7 19 0 14.5-4.7 19l-4.6-4.5z"/><ellipse cx="-5" cy="-3" rx="2.6" ry="3.6" fill="var(--panel)"/><ellipse cx="5" cy="-3" rx="2.6" ry="3.6" fill="var(--panel)"/></svg>`};
+const initials=n=>n.split(/[\s·\-_]+/).filter(Boolean).slice(0,2).map(w=>w[0].toUpperCase()).join('');
+
+// ---------- page text and agents ----------
+document.title=DATA.title;$('d-title').textContent=DATA.title;$('d-when').textContent=DATA.when||'';$('d-lede').textContent=DATA.lede||'';
+$('d-helpers').textContent=DATA.helpersLabel||'Helper agents';$('d-moments').textContent=DATA.momentsTitle||'Moments that mattered';$('d-open').textContent=DATA.openTitle||'Where it stopped';
+let ci=0;
+DATA.agents.forEach(a=>{A[a.id]=a;a.colour=a.tier==='lead'?'var(--lead)':a.tier==='helper'?'var(--helper)':`var(--c${(ci++%6)+1})`;
+  if(a.tier==='helper'){a.el=txt('span','chip',a.name);$('chips').appendChild(a.el);a.node=a.el;return}
+  a.el=txt('div','agent'+(a.tier==='lead'?' lead':''));const av=txt('div','avatar');av.style.color=a.colour;
+  if(AVATAR[a.avatar])av.innerHTML=AVATAR[a.avatar];else av.textContent=initials(a.name);
+  a.statusEl=txt('div','status idle','idle');a.rail=txt('div','rail');
+  a.el.append(av,txt('div','name',a.name),txt('div','role',a.role||''),a.statusEl,a.rail);a.node=av;
+  $(a.tier==='lead'?'row-lead':'row-workers').appendChild(a.el)});
+if(!DATA.agents.some(a=>a.tier==='helper'))$('helpers').hidden=true;
+const spawned=new Set(DATA.steps.filter(s=>s.kind==='spawn').map(s=>s.who));
+(DATA.moments||[]).forEach(m=>{const d=txt('div','moment '+(m.tone||''));d.append(txt('div','eyebrow',m.when),txt('h3','',m.title),txt('p','',m.text));$('moments').appendChild(d)});
+if(!(DATA.moments||[]).length)$('moments-box').hidden=true;
+(DATA.open||[]).forEach(o=>{const li=txt('li');li.append(txt('b','',o.title),' ',txt('span','',o.text));$('open').appendChild(li)});
+if(!(DATA.open||[]).length)$('open-box').hidden=true;
+const STAT=[['agents','agents involved'],['msgs','messages passed'],['spawns','agents spawned'],['fails','checks failed','bad'],['outs',DATA.outputLabel||'outputs saved']];
+STAT.forEach(([k,label,cls])=>{const d=txt('div','stat');const b=txt('b',cls||'','0');b.id='s-'+k;d.append(b,txt('span','',label));$('stats').appendChild(d)});
+
+// ---------- motion ----------
+let speed=1, playing=false, token=0, n;
+const wait=ms=>new Promise(r=>setTimeout(r,ms/speed));
+function run(el,kf,opt){const dur=(opt.duration||.3)/speed;
+  if(M){const a=M.animate(el,kf,{...opt,duration:dur});return a.finished||new Promise(r=>a.then(r))}
+  const len=Math.max(...Object.values(kf).map(v=>v.length)),at=(k,i,d)=>kf[k]?kf[k][Math.min(i,kf[k].length-1)]:d,frames=[];
+  for(let i=0;i<len;i++)frames.push({transform:`translate(${at('x',i,0)}px,${at('y',i,0)}px) scale(${at('scale',i,1)})`,opacity:at('opacity',i,1)});
+  return el.animate(frames,{duration:dur*1000,easing:'ease-in-out'}).finished}
+const centre=el=>{const r=el.getBoundingClientRect(),s=stage.getBoundingClientRect();return[r.left-s.left+r.width/2,r.top-s.top+r.height/2]};
+const pulse=el=>run(el,{scale:[1,1.14,1]},{duration:.35});
+async function fly(from,to,colour,label){
+  const [x0,y0]=centre(from),[x1,y1]=centre(to),p=txt('div','packet');const s=txt('span','',label);s.style.background=colour;p.appendChild(s);
+  p.style.left=x0+'px';p.style.top=y0+'px';stage.appendChild(p);
+  await run(p,{x:[0,x1-x0],y:[0,y1-y0],opacity:[0,1,1,.9],scale:[.6,1,1,.85]},{duration:.85,ease:[.4,0,.2,1]});p.remove()}
+function status(a,text,idle){if(!a.statusEl)return;a.statusEl.textContent=text;a.statusEl.classList.toggle('idle',!!idle)}
+function working(a,on){a.el.classList.toggle('working',on)}
+const toneColour=(s,from)=>s.verdict==='ok'||s.tone==='ok'?'var(--ok)':s.verdict==='bad'||s.tone==='bad'?'var(--bad)':from.colour;
+function line(s){const N=id=>A[id].name;
+  return s.kind==='send'?`${N(s.from)} → ${N(s.to)}`:s.kind==='spawn'?`${N(s.by)} spawns ${N(s.who)}`:s.kind==='check'?`${N(s.who)} checks`:`${N(s.who)} · saved`}
+function counters(){n.agents=DATA.agents.filter(a=>!a.el.hidden).length;for(const k in n)$('s-'+k).textContent=n[k]}
+function feed(s,colour){const li=txt('li');const d=txt('span','dot');d.style.background=colour;li.append(txt('time','',s.t||''),d,txt('span','',line(s)+(s.label?' · '+s.label:'')));$('feed').appendChild(li);$('feed').scrollTop=1e6}
+
+async function apply(s,animate){
+  if(s.t)$('clock').textContent=s.t;
+  if(animate){$('cap-who').textContent=(s.t?s.t+' · ':'')+line(s);$('cap-what').textContent=s.label||''}
+  let colour='var(--lamp)';
+  if(s.kind==='send'){const f=A[s.from],t=A[s.to];colour=toneColour(s,f);n.msgs++;
+    if(s.ends){working(f,false);status(f,'idle',true)}
+    if(animate){pulse(f.node);await fly(f.node,t.node,colour,s.label);pulse(t.node)}
+    if(s.verdict){f.el.classList.remove('working');f.el.classList.add(s.verdict);if(f.tier==='helper')f.el.textContent=f.name+(s.verdict==='ok'?' ✓':' ✕');
+      if(s.verdict==='bad'){n.fails++;if(animate)await run(t.el,{x:[0,-7,7,-5,5,0]},{duration:.4})}}
+    if(s.starts){working(t,true);status(t,'working: '+s.label)}else status(t,s.label);
+  }else if(s.kind==='check'){const a=A[s.who];colour=a.colour;working(a,true);status(a,'checking…');if(animate)await wait(650);working(a,false);status(a,s.label);
+  }else if(s.kind==='spawn'){const b=A[s.by],w=A[s.who];colour=w.colour;n.spawns++;w.el.hidden=false;working(w,true);
+    if(animate){run(w.el,{scale:[0,1.15,1],opacity:[0,1]},{duration:.4});pulse(b.node);await fly(b.node,w.node,b.colour,s.label||'start')}
+    status(w,'working: '+(s.label||''));
+  }else if(s.kind==='output'){const a=A[s.who];n.outs++;const d=document.createElement('i');(a.rail||A[DATA.agents[0].id].rail).appendChild(d);
+    if(animate)await run(d,{y:[-26,0],scale:[.3,1.3,1],opacity:[0,1]},{duration:.45})}
+  counters();feed(s,colour);
+}
+function reset(){n={agents:0,msgs:0,spawns:0,fails:0,outs:0};$('feed').innerHTML='';stage.querySelectorAll('.packet').forEach(p=>p.remove());
+  DATA.agents.forEach(a=>{a.el.hidden=spawned.has(a.id);a.el.classList.remove('working','ok','bad');if(a.tier==='helper')a.el.textContent=a.name;if(a.rail)a.rail.innerHTML='';status(a,'idle',true)});counters()}
+function ending(){const last=DATA.steps[DATA.steps.length-1];$('cap-who').textContent=(last.t?last.t+' · ':'')+'end of session';
+  $('cap-what').textContent=`${n.msgs} messages · ${n.spawns} agents spawned · ${n.fails} checks failed`;DATA.agents.forEach(a=>working(a,false))}
+function rest(){reset();DATA.steps.forEach(s=>apply(s,false));ending();$('feed').scrollTop=0}
+async function play(){
+  if(playing){token++;playing=false;$('play').textContent='Replay';rest();return}
+  const me=++token;playing=true;$('play').textContent='Stop';reset();$('cap-who').textContent='start';$('cap-what').textContent=DATA.lede||'';await wait(900);
+  for(const s of DATA.steps){if(me!==token)return;await apply(s,true);if(me!==token)return;await wait(s.kind==='output'?120:320)}
+  playing=false;$('play').textContent='Replay';ending()}
+$('play').onclick=play;
+$('speed').onclick=()=>{speed=speed===1?2:speed===2?4:1;$('speed').textContent='Speed '+speed+'×'};
+rest();
+</script>

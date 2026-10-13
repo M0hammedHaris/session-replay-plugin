@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-marketplace-manifest.json",
+  "name": "session-replay",
+  "owner": {
+    "name": "Mohammed"
+  },
+  "description": "The session-replay skill, installable as a Claude Code plugin.",
+  "plugins": [
+    {
+      "name": "session-replay",
+      "source": "./",
+      "description": "Build an animated visual replay of a conversation or work session: which agent led, which agents worked, what was handed over, checked, failed and fixed.",
+      "license": "MIT",
+      "keywords": ["replay", "visualization", "animation", "multi-agent", "session", "recap"]
+    }
+  ]
+}
