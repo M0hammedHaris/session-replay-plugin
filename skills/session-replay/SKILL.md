@@ -23,8 +23,10 @@ The page is a fixed template driven by one data object. Your job is to write tha
 3. **Write the steps** in the order they happened, using the step kinds below.
 4. **Pick the moments** (at most four) and the **open items** (what is unfinished, unverified or
    waiting on the user).
-5. **Build the page.** Copy `assets/template.html` from this skill's own folder
-   (`${CLAUDE_SKILL_DIR}/assets/template.html`) to a working file. Replace everything between
+5. **Build the page.** Copy `assets/template.html`, which sits next to this file in the skill's
+   own folder, to a working file. In Claude Code that is `${CLAUDE_SKILL_DIR}/assets/template.html`;
+   if that path shows up unexpanded, your agent does not fill it in, so use the folder this
+   SKILL.md was loaded from. Replace everything between
    `/*REPLAY_DATA_START*/` and `/*REPLAY_DATA_END*/` with your object. Change the `<title>` at the
    top to a short name for this replay (two to four words). Change nothing else in the template
    unless the user asks for a design change.

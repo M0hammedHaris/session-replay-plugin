@@ -1,7 +1,7 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
   "name": "session-replay",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Build an animated visual replay of a conversation or work session: which agent led, which agents worked, what was handed over, checked, failed and fixed.",
   "author": {
     "name": "Mohammed Haris"

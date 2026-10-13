@@ -1,6 +1,6 @@
 # session-replay
 
-A Claude Code skill that turns a conversation or work session into a short animated page. Agents
+An agent skill, packaged as a Claude Code plugin, that turns a conversation or work session into a short animated page. Agents
 show up as avatars, each hand-off is a labelled pill that flies from one agent to another, and
 counters and a short list of key moments sit alongside. It is meant for long or multi-agent runs
 where you want to see who led, who did the work, what was checked and what failed, without reading
@@ -8,7 +8,7 @@ the transcript. The output is a single self-contained HTML file.
 
 ## Install
 
-In Claude Code:
+### Claude Code
 
 ```
 /plugin marketplace add M0hammedHaris/session-replay-plugin
@@ -22,14 +22,38 @@ claude plugin marketplace add M0hammedHaris/session-replay-plugin
 claude plugin install session-replay@session-replay
 ```
 
-A local clone works too: `claude plugin marketplace add ./session-replay-plugin`.
+### Other coding agents
+
+The skill is a plain [Agent Skills](https://agentskills.io) folder (`SKILL.md` plus one asset), so it
+works in any agent that reads that format: Kiro, Codex, Cursor, Gemini CLI, opencode, GitHub Copilot
+and others. The [`skills`](https://github.com/vercel-labs/skills) CLI installs it for the agents it
+finds on your machine:
+
+```bash
+npx skills add M0hammedHaris/session-replay-plugin --skill session-replay
+```
+
+Add `-g` to install it for every project instead of the current one, and `-a <agent>` to pick
+agents yourself (for example `-a kiro-cli -a opencode`).
+
+No installer? Copy `skills/session-replay/` (keep the `assets/` folder beside `SKILL.md`) into the
+place your agent reads skills from:
+
+| agent | project folder | user folder |
+|---|---|---|
+| Claude Code | `.claude/skills/` | `~/.claude/skills/` |
+| Kiro | `.kiro/skills/` | `~/.kiro/skills/` |
+| Codex, Cursor, Gemini CLI, opencode | `.agents/skills/` | see your agent's docs |
+
+Tested with Claude Code, Kiro CLI and opencode. The other agents get the same files from the
+installer but have not been run by the author.
 
 ## Use
 
-Run `/session-replay` (shown as `/session-replay:session-replay` when another skill has the same
-name), or just ask: "show me visually what happened in this session", "replay last night's run".
+In Claude Code run `/session-replay` (shown as `/session-replay:session-replay` when another skill
+has the same name). In any agent, just ask: "show me visually what happened in this session", "replay last night's run".
 
-Claude collects what happened from the conversation and whatever evidence survives (git history,
+The agent collects what happened from the conversation and whatever evidence survives (git history,
 logs, subagent results), fills in the data object, and gives you the page.
 
 ## The data object
